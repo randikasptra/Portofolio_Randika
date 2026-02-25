@@ -74,21 +74,16 @@ const CommentForm = memo(({ onSubmit, isSubmitting, error }) => {
     const handleImageChange = useCallback((e) => {
         const file = e.target.files[0];
         if (file) {
-            // Check file size (5MB limit)
             if (file.size > 5 * 1024 * 1024) {
                 alert('File size must be less than 5MB. Please choose a smaller image.');
-                // Reset the input
                 if (e.target) e.target.value = '';
                 return;
             }
-            
-            // Check file type
             if (!file.type.startsWith('image/')) {
                 alert('Please select a valid image file.');
                 if (e.target) e.target.value = '';
                 return;
             }
-            
             setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => setImagePreview(reader.result);
@@ -127,7 +122,7 @@ const CommentForm = memo(({ onSubmit, isSubmitting, error }) => {
                     type="text"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                     maxLength={15}
+                    maxLength={15}
                     placeholder="Enter your name"
                     className="w-full p-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
                     required
@@ -141,8 +136,7 @@ const CommentForm = memo(({ onSubmit, isSubmitting, error }) => {
                 <textarea
                     ref={textareaRef}
                     value={newComment}
-                     maxLength={200}
-
+                    maxLength={200}
                     onChange={handleTextareaChange}
                     placeholder="Write your message here..."
                     className="w-full p-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none min-h-[120px]"
@@ -232,14 +226,13 @@ const Komentar = () => {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // Initialize AOS
         AOS.init({
             once: false,
             duration: 1000,
         });
     }, []);
 
-    // Fetch pinned comment
+    // Fetch pinned comment — pakai maybeSingle() biar tidak error kalau kosong
     useEffect(() => {
         const fetchPinnedComment = async () => {
             try {
@@ -247,16 +240,14 @@ const Komentar = () => {
                     .from('portfolio_comments')
                     .select('*')
                     .eq('is_pinned', true)
-                    .single();
+                    .maybeSingle(); // ← fix: tidak error kalau tidak ada data
                 
-                if (error && error.code !== 'PGRST116') {
+                if (error) {
                     console.error('Error fetching pinned comment:', error);
                     return;
                 }
                 
-                if (data) {
-                    setPinnedComment(data);
-                }
+                setPinnedComment(data || null);
             } catch (error) {
                 console.error('Error fetching pinned comment:', error);
             }
@@ -265,7 +256,7 @@ const Komentar = () => {
         fetchPinnedComment();
     }, []);
 
-    // Fetch regular comments (excluding pinned) and set up real-time subscription
+    // Fetch regular comments dan real-time subscription
     useEffect(() => {
         const fetchComments = async () => {
             const { data, error } = await supabase
@@ -284,7 +275,6 @@ const Komentar = () => {
 
         fetchComments();
 
-        // Set up real-time subscription
         const subscription = supabase
             .channel('portfolio_comments')
             .on('postgres_changes', 
@@ -295,7 +285,7 @@ const Komentar = () => {
                     filter: 'is_pinned=eq.false'
                 }, 
                 () => {
-                    fetchComments(); // Refresh comments when changes occur
+                    fetchComments();
                 }
             )
             .subscribe();
@@ -316,9 +306,7 @@ const Komentar = () => {
             .from('profile-images')
             .upload(filePath, imageFile);
 
-        if (uploadError) {
-            throw uploadError;
-        }
+        if (uploadError) throw uploadError;
 
         const { data } = supabase.storage
             .from('profile-images')
@@ -336,19 +324,15 @@ const Komentar = () => {
             
             const { error } = await supabase
                 .from('portfolio_comments')
-                .insert([
-                    {
-                        content: newComment,
-                        user_name: userName,
-                        profile_image: profileImageUrl,
-                        is_pinned: false,
-                        created_at: new Date().toISOString()
-                    }
-                ]);
+                .insert([{
+                    content: newComment,
+                    user_name: userName,
+                    profile_image: profileImageUrl,
+                    is_pinned: false,
+                    created_at: new Date().toISOString()
+                }]);
 
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
         } catch (error) {
             setError('Failed to post comment. Please try again.');
             console.error('Error adding comment: ', error);
@@ -377,11 +361,10 @@ const Komentar = () => {
         }).format(date);
     }, []);
 
-    // Calculate total comments (pinned + regular)
     const totalComments = comments.length + (pinnedComment ? 1 : 0);
 
     return (
-        <div className="w-full bg-gradient-to-b from-white/10 to-white/5 rounded-2xl  backdrop-blur-xl shadow-xl" data-aos="fade-up" data-aos-duration="1000">
+        <div className="w-full bg-gradient-to-b from-white/10 to-white/5 rounded-2xl backdrop-blur-xl shadow-xl" data-aos="fade-up" data-aos-duration="1000">
             <div className="p-6 border-b border-white/10" data-aos="fade-down" data-aos-duration="800">
                 <div className="flex items-center gap-3">
                     <div className="p-2 rounded-xl bg-indigo-500/20">
@@ -404,8 +387,7 @@ const Komentar = () => {
                     <CommentForm onSubmit={handleCommentSubmit} isSubmitting={isSubmitting} error={error} />
                 </div>
 
-                <div className="space-y-4 h-[328px] overflow-y-auto overflow-x-hidden custom-scrollbar pt-1 pr-1 " data-aos="fade-up" data-aos-delay="200">
-                    {/* Pinned Comment */}
+                <div className="space-y-4 h-[328px] overflow-y-auto overflow-x-hidden custom-scrollbar pt-1 pr-1" data-aos="fade-up" data-aos-delay="200">
                     {pinnedComment && (
                         <div data-aos="fade-down" data-aos-duration="800">
                             <Comment 
@@ -417,7 +399,6 @@ const Komentar = () => {
                         </div>
                     )}
                     
-                    {/* Regular Comments */}
                     {comments.length === 0 && !pinnedComment ? (
                         <div className="text-center py-8" data-aos="fade-in">
                             <UserCircle2 className="w-12 h-12 text-indigo-400 mx-auto mb-3 opacity-50" />
@@ -437,20 +418,10 @@ const Komentar = () => {
                 </div>
             </div>
             <style jsx>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(99, 102, 241, 0.5);
-                    border-radius: 6px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(99, 102, 241, 0.7);
-                }
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.5); border-radius: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.7); }
             `}</style>
         </div>
     );

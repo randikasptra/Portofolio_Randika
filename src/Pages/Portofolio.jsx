@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
-
-import { supabase } from "../supabase"; 
-
+import { supabase } from "../supabase";
 import PropTypes from "prop-types";
-import SwipeableViews from "react-swipeable-views";
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
 import { useTheme } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
 import Tabs from "@mui/material/Tabs";
@@ -16,7 +15,6 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import Certificate from "../components/Certificate";
 import { Code, Award, Boxes } from "lucide-react";
-
 
 const ToggleButton = ({ onClick, isShowingMore }) => (
   <button
@@ -70,7 +68,6 @@ const ToggleButton = ({ onClick, isShowingMore }) => (
   </button>
 );
 
-
 function TabPanel({ children, value, index, ...other }) {
   return (
     <div
@@ -102,7 +99,7 @@ function a11yProps(index) {
   };
 }
 
-// techStacks tetap sama
+// Tech Stacks (tetap static)
 const techStacks = [
   { icon: "html.svg", language: "HTML" },
   { icon: "css.svg", language: "CSS" },
@@ -125,56 +122,61 @@ export default function FullWidthTabs() {
   const [certificates, setCertificates] = useState([]);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllCertificates, setShowAllCertificates] = useState(false);
-  const isMobile = window.innerWidth < 768;
+  const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Cek mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const initialItems = isMobile ? 4 : 6;
 
+  // Init AOS
   useEffect(() => {
     AOS.init({
       once: false,
+      duration: 1000,
     });
   }, []);
 
-
+  // Fetch data dari Supabase
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      // Mengambil data dari Supabase secara paralel
-      const [projectsResponse, certificatesResponse] = await Promise.all([
-        supabase.from("projects").select("*").order('id', { ascending: false }),
-        supabase.from("certificates").select("*").order('id', { ascending: false }), 
-      ]);
+      // Ambil projects dari Supabase
+      const { data: projectsData, error: projectsError } = await supabase
+        .from("projects")
+        .select("*")
+        .order('id', { ascending: false });
 
-      // Error handling untuk setiap request
-      if (projectsResponse.error) throw projectsResponse.error;
-      if (certificatesResponse.error) throw certificatesResponse.error;
+      if (projectsError) throw projectsError;
 
-      // Supabase mengembalikan data dalam properti 'data'
-      const projectData = projectsResponse.data || [];
-      const certificateData = certificatesResponse.data || [];
+      // Ambil certificates dari Supabase
+      const { data: certificatesData, error: certificatesError } = await supabase
+        .from("certificates")
+        .select("*")
+        .order('id', { ascending: false });
 
-      setProjects(projectData);
-      setCertificates(certificateData);
+      if (certificatesError) throw certificatesError;
 
-      // Store in localStorage (fungsionalitas ini tetap dipertahankan)
-      localStorage.setItem("projects", JSON.stringify(projectData));
-      localStorage.setItem("certificates", JSON.stringify(certificateData));
+      setProjects(projectsData || []);
+      setCertificates(certificatesData || []);
     } catch (error) {
-      console.error("Error fetching data from Supabase:", error.message);
+      console.error("Error fetching data:", error.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-
-
+  // Load data saat component mount
   useEffect(() => {
-    // Coba ambil dari localStorage dulu untuk laod lebih cepat
-    const cachedProjects = localStorage.getItem('projects');
-    const cachedCertificates = localStorage.getItem('certificates');
-
-    if (cachedProjects && cachedCertificates) {
-        setProjects(JSON.parse(cachedProjects));
-        setCertificates(JSON.parse(cachedCertificates));
-    }
-    
-    fetchData(); // Tetap panggil fetchData untuk sinkronisasi data terbaru
+    fetchData();
   }, [fetchData]);
 
   const handleChange = (event, newValue) => {
@@ -192,10 +194,21 @@ export default function FullWidthTabs() {
   const displayedProjects = showAllProjects ? projects : projects.slice(0, initialItems);
   const displayedCertificates = showAllCertificates ? certificates : certificates.slice(0, initialItems);
 
-  // Sisa dari komponen (return statement) tidak ada perubahan
+  // Loading state
+  if (loading) {
+    return (
+      <div className="md:px-[10%] px-[5%] w-full sm:mt-0 mt-[3rem] bg-[#030014] min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading portfolio...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="md:px-[10%] px-[5%] w-full sm:mt-0 mt-[3rem] bg-[#030014] overflow-hidden" id="Portofolio">
-      {/* Header section - unchanged */}
+      {/* Header section */}
       <div className="text-center pb-10" data-aos="fade-up" data-aos-duration="1000">
         <h2 className="inline-block text-3xl md:text-5xl font-bold text-center mx-auto text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#a855f7]">
           <span style={{
@@ -215,7 +228,7 @@ export default function FullWidthTabs() {
       </div>
 
       <Box sx={{ width: "100%" }}>
-        {/* AppBar and Tabs section - unchanged */}
+        {/* AppBar and Tabs section */}
         <AppBar
           position="static"
           elevation={0}
@@ -239,7 +252,6 @@ export default function FullWidthTabs() {
           }}
           className="md:px-4"
         >
-          {/* Tabs remain unchanged */}
           <Tabs
             value={value}
             onChange={handleChange}
@@ -301,17 +313,18 @@ export default function FullWidthTabs() {
           </Tabs>
         </AppBar>
 
-        <SwipeableViews
-          axis={theme.direction === "rtl" ? "x-reverse" : "x"}
-          index={value}
-          onChangeIndex={setValue}
-        >
-          <TabPanel value={value} index={0} dir={theme.direction}>
-            <div className="container mx-auto flex justify-center items-center overflow-hidden">
+        {/* Projects Tab - Data dari Supabase */}
+        <TabPanel value={value} index={0} dir={theme.direction}>
+          <div className="container mx-auto flex justify-center items-center overflow-hidden">
+            {projects.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-slate-400">No projects yet</p>
+              </div>
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
                 {displayedProjects.map((project, index) => (
                   <div
-                    key={project.id || index}
+                    key={project.id}
                     data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
                     data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
                   >
@@ -320,62 +333,75 @@ export default function FullWidthTabs() {
                       Title={project.Title}
                       Description={project.Description}
                       Link={project.Link}
+                      TechStack={project.TechStack}
                       id={project.id}
                     />
                   </div>
                 ))}
               </div>
-            </div>
-            {projects.length > initialItems && (
-              <div className="mt-6 w-full flex justify-start">
-                <ToggleButton
-                  onClick={() => toggleShowMore('projects')}
-                  isShowingMore={showAllProjects}
-                />
-              </div>
             )}
-          </TabPanel>
+          </div>
+          {projects.length > initialItems && (
+            <div className="mt-6 w-full flex justify-start">
+              <ToggleButton
+                onClick={() => toggleShowMore('projects')}
+                isShowingMore={showAllProjects}
+              />
+            </div>
+          )}
+        </TabPanel>
 
-          <TabPanel value={value} index={1} dir={theme.direction}>
-            <div className="container mx-auto flex justify-center items-center overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-3 md:gap-5 gap-4">
+        {/* Certificates Tab - Data dari Supabase */}
+        <TabPanel value={value} index={1} dir={theme.direction}>
+          <div className="container mx-auto flex justify-center items-center overflow-hidden">
+            {certificates.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-slate-400">No certificates yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {displayedCertificates.map((certificate, index) => (
                   <div
-                    key={certificate.id || index}
+                    key={certificate.id}
                     data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
                     data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
                   >
-                    <Certificate ImgSertif={certificate.Img} />
+                    <Certificate 
+                      ImgSertif={certificate.Img}
+                      Title={certificate.Title}
+                      Description={certificate.Description}
+                    />
                   </div>
                 ))}
-              </div>
-            </div>
-            {certificates.length > initialItems && (
-              <div className="mt-6 w-full flex justify-start">
-                <ToggleButton
-                  onClick={() => toggleShowMore('certificates')}
-                  isShowingMore={showAllCertificates}
-                />
               </div>
             )}
-          </TabPanel>
-
-          <TabPanel value={value} index={2} dir={theme.direction}>
-            <div className="container mx-auto flex justify-center items-center overflow-hidden pb-[5%]">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-8 gap-5">
-                {techStacks.map((stack, index) => (
-                  <div
-                    key={index}
-                    data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
-                    data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
-                  >
-                    <TechStackIcon TechStackIcon={stack.icon} Language={stack.language} />
-                  </div>
-                ))}
-              </div>
+          </div>
+          {certificates.length > initialItems && (
+            <div className="mt-6 w-full flex justify-start">
+              <ToggleButton
+                onClick={() => toggleShowMore('certificates')}
+                isShowingMore={showAllCertificates}
+              />
             </div>
-          </TabPanel>
-        </SwipeableViews>
+          )}
+        </TabPanel>
+
+        {/* Tech Stack Tab - Static */}
+        <TabPanel value={value} index={2} dir={theme.direction}>
+          <div className="container mx-auto flex justify-center items-center overflow-hidden pb-[5%]">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-8 gap-5">
+              {techStacks.map((stack, index) => (
+                <div
+                  key={index}
+                  data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
+                  data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
+                >
+                  <TechStackIcon TechStackIcon={stack.icon} Language={stack.language} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </TabPanel>
       </Box>
     </div>
   );
